@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # this is based on the code from https://github.com/quanpn90/NMTGMinor.git and the code from https://github.com/huggingface/transformers
 
 
@@ -29,3 +30,7 @@ Recipe for the Speech model coming soon.
 # bert_transformer
 leverage the pretrained model Bert to do nmt
 >>>>>>> 01028340096eee43c63902fdd726e5dc9225184f
+=======
+# Init_transformer_encoder-
+Initialize the encoder of Transformer with the weights of the pretrained Bert before training Transformer
+>>>>>>> 35e03bd5d8351b751e29bbe63431b2b91f6d6c87
