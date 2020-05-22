@@ -2,3 +2,4 @@
 
 2. Training the Transformer to do NMT task
 
+3. The code is based on https://github.com/quanpn90/NMTGMinor.git and https://github.com/huggingface/transformers
