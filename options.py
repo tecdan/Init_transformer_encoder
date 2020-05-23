@@ -52,8 +52,8 @@ def make_parser(parser):
     #                     help='Dropout probability; applied on the output of Bert.')
     parser.add_argument('-bert_config_dir', default="", type=str,
                         help=""" the path to the pretrained Bert model.""")
-    # parser.add_argument('-bert_state_dict', default="", type=str,
-    #                     help=""" the state_dict of the  pretrained model""")
+    parser.add_argument('-bert_state_dict', default="", type=str,
+                         help=""" the state_dict of the  pretrained model""")
 
     parser.add_argument('-not_load_bert_state', action='store_true',
                         help='only create a  Bert Object, not load the state from pytorch modle or fituned model')
