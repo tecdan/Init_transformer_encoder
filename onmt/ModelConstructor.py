@@ -4,7 +4,7 @@ import onmt
 from onmt.modules.Transformer.Models import TransformerEncoder, TransformerDecoder, Transformer, MixedEncoder
 from onmt.modules.Transformer.Layers import PositionalEncoding
 from onmt.modules.RelativeTransformer.Layers import SinusoidalPositionalEmbedding
-from bert_module.modeling import BertModel
+from bert_module.modeling import BertModel ,BertConfig 
 from bert_module.bert_vecs import replace_layer_norm
 
 init = torch.nn.init
@@ -95,10 +95,20 @@ def build_tm_model(opt, dicts):
 
     if opt.model == 'transformer':
         onmt.Constants.init_value = opt.param_init
-
         if opt.encoder_type == "text":
-            # encoder = TransformerEncoder(opt, bert_linear, positional_encoder, opt.encoder_type)
-            bert = BertModel.from_pretrained(cache_dir=opt.bert_config_dir)
+            # 这里 bert_model_dir 可以是pytorch提供的预训练模型，也可以是经过自己fine_tune的bert 也可不加在state,只构建一个对象
+            if opt.not_load_bert_state:
+                print("we dont load the state of Bert from pytorch model or from pretrained model")
+                bert_config = BertConfig.from_json_file(opt.bert_config_dir + "/" + opt.bert_config_name)
+                bert = BertModel(bert_config)
+            else:
+                if opt.bert_state_dict:
+                    print("after builing bert we load the state from finetuned Bert")
+                    finetuned_state_dict = torch.load(opt.bert_state_dict)
+                    bert = BertModel.from_pretrained(cache_dir=opt.bert_config_dir, state_dict=finetuned_state_dict)
+                else:
+                    print("after builing bert we load the state from Pytorch")
+                    bert = BertModel.from_pretrained(cache_dir=opt.bert_config_dir)
             replace_layer_norm(bert, "Transformer")
 
         else:

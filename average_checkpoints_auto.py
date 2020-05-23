@@ -35,19 +35,8 @@ def custom_build_model(opt, dict, lm=False):
     if not lm:
         # print("bert_model_dir:", opt.bert_model_dir)
         model = build_model(opt, dict)
-        # by me
-        scalar_mix = ScalarMix(
-           onmt.Constants.BERT_LAYERS,
-           do_layer_norm=True,
-           initial_scalar_parameters=None,
-           trainable=True,
-        )
-        model.add_module("scalar_mix", scalar_mix)
     else:
         model = build_language_model(opt, dict)
-
-
-
     return model
 
 def main():
@@ -83,15 +72,10 @@ def main():
 
     best_checkpoint = main_checkpoint
 
-    # print("Saving best model to %s" % opt.output + ".top")
-
-    # torch.save(best_checkpoint, opt.output + ".top")
-
     model_opt = checkpoint['opt']
+    # 下面load_state_dict有依次加载最优的五个模型，所以这里只用构建对象 
+    model_opt.not_load_bert_state = True     
     dicts = checkpoint['dicts']
-
-
-    #print("model_opt.layers:", model_opt.layers)
 
     main_model = custom_build_model(model_opt, checkpoint['dicts'], lm=opt.lm)
 
@@ -107,7 +91,7 @@ def main():
         checkpoint = torch.load(model, map_location=lambda storage, loc: storage)
 
         model_opt = checkpoint['opt']
-
+        model_opt.not_load_bert_state = True     
         # delete optim information to save GPU memory
         if 'optim' in checkpoint:
             del checkpoint['optim']

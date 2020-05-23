@@ -638,20 +638,18 @@ class Transformer(NMTModel):
         # by me
         # training 时不会到这里来，translate 时会
         # training 在正常执行，所以是不会来到这的
-        #bert_all_layers = make_bert_vec(src_transposed)
+        # bert_all_layers = make_bert_vec(src_transposed)
         bert_all_layers, _ = self.bert(src_transposed, segments_tensor, input_mask)
 
-        scalar_vec = hasattr(self,'scalar_mix')
-        if scalar_vec :
-            bert_vec = self.scalar_mix(bert_all_layers, input_mask)
-        else:
-            bert_vec = bert_all_layers[-1]
+        context = bert_all_layers[-1]
+        # context [batch_size , len, hidden] => [len, batch_size, hidden] 
+        context = context.transpose(0, 1) 
 
         # by me
-        # src_transposed 和 bert_tok_vecs 都是batch first
-        encoder_output = self.bert(src_transposed, bert_vec)
-
-        decoder_state = TransformerDecodingState(src, tgt_atb, encoder_output['context'], encoder_output['src_mask'],
+        # src_transposed 是batch first
+        # [batch_size , len] => [batchsize, 1, len] padding位置True
+        mask_src = src_transposed.eq(onmt.Constants.PAD).unsqueeze(1)  # batch_size  x 1 x len_src for broadcasting
+        decoder_state = TransformerDecodingState(src, tgt_atb, context, mask_src,
                                                  beam_size=beam_size, model_size=self.model_size, type=type)
 
         return decoder_state

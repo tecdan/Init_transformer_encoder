@@ -55,6 +55,12 @@ def make_parser(parser):
     # parser.add_argument('-bert_state_dict', default="", type=str,
     #                     help=""" the state_dict of the  pretrained model""")
 
+    parser.add_argument('-not_load_bert_state', action='store_true',
+                        help='only create a  Bert Object, not load the state from pytorch modle or fituned model')
+
+    parser.add_argument('-bert_config_name', default="bert_config.json", type=str,
+                        help=""" the name of bert configuration.""")
+
 
 
     # Transforer Model options

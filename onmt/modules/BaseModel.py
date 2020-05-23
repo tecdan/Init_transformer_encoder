@@ -58,9 +58,11 @@ class NMTModel(nn.Module):
             
             if 'positional_encoder' in param_name:
                 return False
-            if 'time_transformer' in param_name:
-                if self.encoder is not None and self.encoder.time == 'positional_encoding':
-                    return False
+            # 我们是transformer， 不是time transformer
+#            if 'time_transformer' in param_name:
+#                # by me 
+#                #if self.encoder is not None and self.encoder.time == 'positional_encoding':
+#                    return False
             if param_name == 'decoder.mask':
                 return False
             
