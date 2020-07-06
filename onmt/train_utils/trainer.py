@@ -350,17 +350,11 @@ class XETrainer(BaseTrainer):
 
         return total_loss / total_words
 
-    # def run(self, save_file=None):
     def run(self, checkpoint=None):
 
         opt = self.opt
         model = self.model
         # optim = self.optim
-        
-        # Try to load the save_file
-        # checkpoint = None
-        # if save_file:
-        #     checkpoint = torch.load(save_file, map_location=lambda storage, loc: storage)
         
         if checkpoint is not None:
             self.model.load_state_dict(checkpoint['model'])

@@ -203,10 +203,10 @@ class TransformerDecoder(nn.Module):
         self.n_heads = opt.n_heads
         self.inner_size = opt.inner_size
         self.layers = opt.layers
-        self.dropout = opt.dropout
-        self.word_dropout = opt.word_dropout
-        self.attn_dropout = opt.attn_dropout
-        self.emb_dropout = opt.emb_dropout
+        self.dropout = opt.dec_hidden_dropout
+        self.word_dropout = opt.dec_word_dropout
+        self.attn_dropout = opt.dec_attn_dropout
+        self.emb_dropout = opt.dec_emb_dropout
         self.time = opt.time
         self.version = opt.version
         self.encoder_type = opt.encoder_type
@@ -216,7 +216,7 @@ class TransformerDecoder(nn.Module):
         self.switchout = opt.switchout
 
         if self.switchout > 0:
-            self.word_dropout = 0
+            self.dec_word_dropout = 0
 
         if opt.time == 'positional_encoding':
             self.time_transformer = positional_encoder

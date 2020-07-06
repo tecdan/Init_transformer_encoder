@@ -44,24 +44,28 @@ def make_parser(parser):
                         [concat|sum]""")
 
     # options of Bert
-    # parser.add_argument('-finetune_bert', action='store_true',
-    #                     help='we train bert and transformer together to finetune bert')
-    # parser.add_argument('-bert_scalar', action='store_true',
-    #                     help='use elmo type of weighted sum of all the vectors of the 12 layers of Bert')
-    # parser.add_argument('-bert_output_dropout', type=float, default=0.0,
-    #                     help='Dropout probability; applied on the output of Bert.')
     parser.add_argument('-bert_config_dir', default="", type=str,
                         help=""" the path to the pretrained Bert model.""")
     parser.add_argument('-bert_state_dict', default="", type=str,
-                         help=""" the state_dict of the  pretrained model""")
-
+                        help=""" the state_dict of the  pretrained model""")
     parser.add_argument('-not_load_bert_state', action='store_true',
                         help='only create a  Bert Object, not load the state from pytorch modle or fituned model')
 
     parser.add_argument('-bert_config_name', default="bert_config.json", type=str,
                         help=""" the name of bert configuration.""")
+    parser.add_argument('-bert_weight_name', default="pytorch_model.bin", type=str,
+                        help=""" the name of bin file of the pretrained model.""")
 
-
+    parser.add_argument('-bert_word_dropout', type=float, default=0.0,
+                        help="""word dropout appled on bert""")
+    parser.add_argument('-bert_emb_dropout', type=float, default=0.1,
+                        help="""dropout applied on bert embedding""")
+    parser.add_argument('-bert_attn_dropout', type=float, default=0.1,
+                        help="""dropout on bert attention, corresponds to attention_probs_dropout_prob""")
+    parser.add_argument('-bert_hidden_dropout', type=float, default=0.1,
+                        help="""dropout applied on bert hidden, corresponds to hidden_dropout_prob""")
+    parser.add_argument('-bert_hidden_size', type=int, default=768,
+        help='Size of bert hidden')  
 
     # Transforer Model options
     parser.add_argument('-model_size', type=int, default=512,
@@ -73,11 +77,20 @@ def make_parser(parser):
     parser.add_argument('-n_heads', type=int, default=8,
         help='Number of heads for multi-head attention') 
     parser.add_argument('-checkpointing', type=int, default=0,
-        help='Number of checkpointed layers in the Transformer') 
-    parser.add_argument('-attn_dropout', type=float, default=0.1,
-                        help='Dropout probability; applied on multi-head attention.')   
-    parser.add_argument('-emb_dropout', type=float, default=0.1,
-                        help='Dropout probability; applied on top of embedding.')
+        help='Number of checkpointed layers in the Transformer')
+
+    parser.add_argument('-dec_attn_dropout', type=float, default=0.1,
+                        help='Dropout probability; applied on multi-head attention of the decoder.')
+    parser.add_argument('-dec_emb_dropout', type=float, default=0.1,
+                        help='Dropout probability; applied on top of embedding for the decoder.')
+    parser.add_argument('-dec_hidden_dropout', type=float, default=0.3,
+                        help='hidden dropout applied on decoder of the transformer.')
+    parser.add_argument('-dec_word_dropout', type=float, default=0.0,
+                        help='Dropout probability; applied on embedding indices.')
+
+    parser.add_argument('-switchout', type=float, default=0.0,
+                        help='Switchout algorithm')
+
     parser.add_argument('-variational_dropout', action='store_true',
                         help='Apply variational dropout (same network per timestep)')
     parser.add_argument('-weight_norm', action='store_true',
@@ -123,13 +136,7 @@ def make_parser(parser):
     parser.add_argument('-max_grad_norm', type=float, default=0,
                         help="""If the norm of the gradient vector exceeds this,
                         renormalize it to have the norm equal to max_grad_norm""")
-    parser.add_argument('-dropout', type=float, default=0.3,
-                        help='Dropout probability; applied between LSTM stacks.')
-    parser.add_argument('-word_dropout', type=float, default=0.0,
-                        help='Dropout probability; applied on embedding indices.')
 
-    parser.add_argument('-switchout', type=float, default=0.0,
-                        help='Switchout algorithm')
     parser.add_argument('-label_smoothing', type=float, default=0.0,
                         help='Label smoothing value for loss functions.')
     parser.add_argument('-scheduled_sampling_rate', type=float, default=0.0,

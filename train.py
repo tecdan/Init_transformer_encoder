@@ -194,20 +194,11 @@ def main():
 
     print('Building model...')
 
-    if not opt.fusion:
+    model = build_model(opt, dicts)
 
-        model = build_model(opt, dicts)
-
-        """ Building the loss function """
-        loss_function = NMTLossFunc(dicts['tgt'].size(),
-                                    label_smoothing=opt.label_smoothing)
-    else:
-        from onmt.ModelConstructor import build_fusion
-        from onmt.modules.Loss import FusionLoss
-
-        model = build_fusion(opt, dicts)
-
-        loss_function = FusionLoss(dicts['tgt'].size(), label_smoothing=opt.label_smoothing)
+    """ Building the loss function """
+    loss_function = NMTLossFunc(dicts['tgt'].size(),
+                                label_smoothing=opt.label_smoothing)
 
     n_params = sum([p.nelement() for p in model.parameters()])
     print('* number of all parameters: %d' % n_params)
@@ -224,7 +215,7 @@ def main():
     if len(opt.gpus) > 1 or opt.virtual_gpu > 1:
         raise NotImplementedError("Warning! Multi-GPU training is not fully tested and potential bugs can happen.")
     else:
-        trainer = XETrainer(model, loss_function, train_data, valid_data, dicts, opt)
+        trainer = XETrainer(model, loss_function, train_data, valid_data, dicts, opt, setup_optimizer=True)
         if len(additional_data) > 0:
             trainer.add_additional_data(additional_data, opt.data_ratio)
 

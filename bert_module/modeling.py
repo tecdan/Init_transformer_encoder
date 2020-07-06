@@ -25,16 +25,13 @@ import json
 import logging
 import math
 import os
-import shutil
-import tarfile
-import tempfile
 import sys
 from io import open
 import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss
+import torch.nn.functional as F
 
-#from .file_utils import WEIGHTS_NAME, CONFIG_NAME
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG,
 format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
@@ -43,8 +40,6 @@ filename='bert-pretraining-hd.log',
 filemode='w')
 
 
-WEIGHTS_NAME = "pytorch_model.bin"
-BERT_CONFIG_NAME = 'bert_config.json'
 TF_WEIGHTS_NAME = 'model.ckpt'
 
 
@@ -227,10 +222,12 @@ class BertConfig(object):
         with open(json_file_path, "w", encoding='utf-8') as writer:
             writer.write(self.to_json_string())
 
+
 try:
     from apex.normalization.fused_layer_norm import FusedLayerNorm as BertLayerNorm
 except ImportError:
     logger.info("Better speed can be achieved with apex installed from https://www.github.com/nvidia/apex .")
+
     class BertLayerNorm(nn.Module):
         def __init__(self, hidden_size, eps=1e-12):
             """Construct a layernorm module in the TF style (epsilon inside the square root).
@@ -246,11 +243,13 @@ except ImportError:
             x = (x - u) / torch.sqrt(s + self.variance_epsilon)
             return self.weight * x + self.bias
 
+
 class BertEmbeddings(nn.Module):
     """Construct the embeddings from word, position and token_type embeddings.
     """
     def __init__(self, config):
         super(BertEmbeddings, self).__init__()
+        self.bert_word_dropout = config.bert_word_dropout
         self.word_embeddings = nn.Embedding(config.vocab_size, config.hidden_size, padding_idx=0)
         self.position_embeddings = nn.Embedding(config.max_position_embeddings, config.hidden_size)
         self.token_type_embeddings = nn.Embedding(config.type_vocab_size, config.hidden_size)
@@ -260,20 +259,37 @@ class BertEmbeddings(nn.Module):
         # any TensorFlow checkpoint file
         self.LayerNorm = BertLayerNorm(config.hidden_size, eps=config.layer_norm_eps)
 
-        # 找到第三个dropout, 三个embedding相加后做LN,LN之后，执行一次dropout
-        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        # 找到第三个dropout, 三个embedding相加后做LN,LN之后，执行一次dropout, 原始bert没有独立的emb_dropout_prob
+        if not hasattr(config, 'emb_dropout_prob'):
+            config.emb_dropout_prob = config.hidden_dropout_prob
+        self.dropout = nn.Dropout(config.emb_dropout_prob)
 
     def forward(self, input_ids, token_type_ids=None):
         seq_length = input_ids.size(1)
         position_ids = torch.arange(seq_length, dtype=torch.long, device=input_ids.device)
-        # if seq_length > self.max_position_id-1:
+        #if seq_length > self.max_position_id-1:
         if seq_length > self.max_position_id:
             position_ids = torch.clamp(position_ids, 0, self.max_position_id-1)
         position_ids = position_ids.unsqueeze(0).expand_as(input_ids)
         if token_type_ids is None:
             token_type_ids = torch.zeros_like(input_ids)
 
-        words_embeddings = self.word_embeddings(input_ids)
+        # by me
+        embed = self.word_embeddings
+        if self.bert_word_dropout and self.training:
+            mask = embed.weight.data.new().resize_((embed.weight.size(0), 1)).bernoulli_(1 - self.bert_word_dropout).\
+                       expand_as(embed.weight) / (1 - self.bert_word_dropout)
+
+            masked_embed_weight = mask * embed.weight
+        else:
+            masked_embed_weight = embed.weight
+        padding_idx = embed.padding_idx
+
+        words_embeddings = F.embedding(
+            input_ids, masked_embed_weight, padding_idx, embed.max_norm,
+            embed.norm_type, embed.scale_grad_by_freq, embed.sparse)
+
+        # words_embeddings = self.word_embeddings(input_ids)
         position_embeddings = self.position_embeddings(position_ids)
         token_type_embeddings = self.token_type_embeddings(token_type_ids)
 
@@ -495,6 +511,7 @@ class BertOnlyMLMHead(nn.Module):
         prediction_scores = self.predictions(sequence_output)
         return prediction_scores
 
+
 # only next sentence prediction
 class BertOnlyNSPHead(nn.Module):
     def __init__(self, config):
@@ -504,6 +521,7 @@ class BertOnlyNSPHead(nn.Module):
     def forward(self, pooled_output):
         seq_relationship_score = self.seq_relationship(pooled_output)
         return seq_relationship_score
+
 
 class BertPreTrainingHeads(nn.Module):
     def __init__(self, config, bert_model_embedding_weights):
@@ -516,11 +534,15 @@ class BertPreTrainingHeads(nn.Module):
         seq_relationship_score = self.seq_relationship(pooled_output)
         return prediction_scores, seq_relationship_score
 
+
 class BertPreTrainedModel(nn.Module):
     """ An abstract class to handle weights initialization and
         a simple interface for dowloading and loading pretrained models.
     """
-    def __init__(self, config, *inputs, **kwargs):
+    def __init__(self, config,
+                 *inputs,
+                 **kwargs):
+
         super(BertPreTrainedModel, self).__init__()
         if not isinstance(config, BertConfig):
             raise ValueError(
@@ -566,19 +588,16 @@ class BertPreTrainedModel(nn.Module):
             *inputs, **kwargs: additional input for the specific Bert class
                 (ex: num_labels for BertForSequenceClassification)
         """
-        state_dict = kwargs.get('state_dict', None)
-        kwargs.pop('state_dict', None)
-        save_dir = kwargs.get('cache_dir', None)
-        kwargs.pop('cache_dir', None)
-        from_tf = kwargs.get('from_tf', False) # 不从本地加载tensorflow state dictionnary
-        kwargs.pop('from_tf', None)
+        state_dict = kwargs.pop('state_dict', None)
+        save_dir = kwargs.pop('cache_dir', None)
+        from_tf = kwargs.pop('from_tf', False) # 不从本地加载tensorflow state dictionnary
+        BERT_CONFIG_NAME = kwargs.pop('config_name', 'bert_config.json')
+        WEIGHTS_NAME = kwargs.pop('weight_name', 'pytorch_model.bin')
 
-        # by me
         serialization_dir = save_dir
         config_file = os.path.join(serialization_dir, BERT_CONFIG_NAME)
         config = BertConfig.from_json_file(config_file)
-        logger.info("Model config {}".format(config))
-        # Instantiate model.
+
         model = cls(config, *inputs, **kwargs)
         # 从 pytorch_model.bin 加载参数
         if state_dict is None and not from_tf:
@@ -620,8 +639,6 @@ class BertPreTrainedModel(nn.Module):
         start_prefix = ''
 
         # by me
-        # if not hasattr(model, 'bert') and any(s.startswith('bert.') for s in state_dict.keys()):
-        # hasattr(model, 'bert_model') 第一个元素 model是我们这次新建的 model
         if not hasattr(model, 'bert') and any(s.startswith('bert.') for s in state_dict.keys()):
             start_prefix = 'bert.'
 
@@ -678,13 +695,28 @@ class BertModel(BertPreTrainedModel):
     all_encoder_layers, pooled_output = model(input_ids, token_type_ids, input_mask)
     ```
     """
-    def __init__(self, config):
-        super(BertModel, self).__init__(config)
+    def __init__(self, config, bert_word_dropout, bert_emb_dropout, bert_atten_dropout, bert_hidden_dropout,bert_hidden_size):
+        super(BertModel, self).__init__(config,
+                                        bert_word_dropout=0, 
+                                        bert_emb_dropout=0.1, 
+                                        bert_atten_dropout=0.1, 
+                                        bert_hidden_dropout=0.1,
+                                        bert_hidden_size=768
+                                        )
+        # by me
+        config.bert_word_dropout = bert_word_dropout
+        config.bert_emb_dropout = bert_emb_dropout
+        config.bert_atten_dropout = bert_atten_dropout
+        config.bert_hidden_dropout = bert_hidden_dropout
+        config.hidden_size = bert_hidden_size
+
         self.embeddings = BertEmbeddings(config)
         self.encoder = BertEncoder(config)
         self.pooler = BertPooler(config)
         self.apply(self.init_bert_weights)
         self.hidden_size = config.hidden_size
+
+
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, output_all_encoded_layers=True):
         if attention_mask is None:

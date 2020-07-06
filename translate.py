@@ -71,11 +71,11 @@ parser.add_argument('-dump_beam', type=str, default="",
                     help='File to dump beam information to.')
 
 #by me
-parser.add_argument('-bos_token', type=str, default="[CLS]",
-                    help='BOS Token (used in multilingual model). Default is <s>.')
+#parser.add_argument('-bos_token', type=str, default="[CLS]",
+#                    help='BOS Token (used in multilingual model). Default is <s>.')
 
-# parser.add_argument('-bos_token', type=str, default="<s>",
-#                     help='BOS Token (used in multilingual model). Default is <s>.')
+parser.add_argument('-bos_token', type=str, default="<s>",
+                     help='BOS Token (used in multilingual model). Default is <s>.')
 
 parser.add_argument('-no_bos_gold', action="store_true",
                     help='BOS Token (used in multilingual model). Default is <s>.')

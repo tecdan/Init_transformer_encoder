@@ -71,8 +71,6 @@ def build_tm_model(opt, dicts):
 
     # BUILD POSITIONAL ENCODING
     if opt.time == 'positional_encoding':
-        # by me
-        # len_max 是否要修改
         positional_encoder = PositionalEncoding(opt.model_size, len_max=MAX_LEN)
     else:
         raise NotImplementedError
@@ -90,25 +88,50 @@ def build_tm_model(opt, dicts):
                                      opt.model_size,
                                      padding_idx=onmt.Constants.PAD)
 
-    # if opt.ctc_loss != 0:
-    #     generators.append(onmt.modules.BaseModel.Generator(opt.model_size, dicts['tgt'].size() + 1))
-
     if opt.model == 'transformer':
         onmt.Constants.init_value = opt.param_init
+        opt.bert_hidden_size=768
+
         if opt.encoder_type == "text":
-            # 这里 bert_model_dir 可以是pytorch提供的预训练模型，也可以是经过自己fine_tune的bert 也可不加在state,只构建一个对象
+            # 不加载state,只构建一个对象
             if opt.not_load_bert_state:
                 print("we dont load the state of Bert from pytorch model or from pretrained model")
                 bert_config = BertConfig.from_json_file(opt.bert_config_dir + "/" + opt.bert_config_name)
-                bert = BertModel(bert_config)
+                bert = BertModel(bert_config,
+                                 bert_word_dropout=opt.bert_word_dropout,
+                                 bert_emb_dropout=opt.bert_emb_dropout,
+                                 bert_atten_dropout=opt.bert_attn_dropout,
+                                 bert_hidden_dropout=opt.bert_hidden_dropout,
+                                 bert_hidden_size=opt.bert_hidden_size
+                                 )
+
+            # 这里 bert_model_dir 可以是pytorch提供的预训练模型，也可以是经过自己fine_tune的bert 
             else:
                 if opt.bert_state_dict:
                     print("after builing bert we load the state from finetuned Bert")
                     finetuned_state_dict = torch.load(opt.bert_state_dict)
-                    bert = BertModel.from_pretrained(cache_dir=opt.bert_config_dir, state_dict=finetuned_state_dict)
+                    bert = BertModel.from_pretrained(cache_dir=opt.bert_config_dir,
+                                                     weight_name=opt.bert_weight_name,
+                                                     config_name=opt.bert_config_name,
+                                                     state_dict=finetuned_state_dict,
+                                                     bert_word_dropout=opt.bert_word_dropout,
+                                                     bert_emb_dropout=opt.bert_emb_dropout,
+                                                     bert_atten_dropout=opt.bert_attn_dropout,
+                                                     bert_hidden_dropout=opt.bert_hidden_dropout,
+                                                     bert_hidden_size=opt.bert_hidden_size
+                                                     )
                 else:
                     print("after builing bert we load the state from Pytorch")
-                    bert = BertModel.from_pretrained(cache_dir=opt.bert_config_dir)
+                    bert = BertModel.from_pretrained(cache_dir=opt.bert_config_dir,
+                                                     config_name=opt.bert_config_name,
+                                                     weight_name=opt.bert_weight_name,
+                                                     bert_word_dropout=opt.bert_word_dropout,
+                                                     bert_emb_dropout=opt.bert_emb_dropout,
+                                                     bert_hidden_dropout=opt.bert_hidden_dropout,
+                                                     bert_atten_dropout=opt.bert_attn_dropout,
+                                                     bert_hidden_size=opt.bert_hidden_size
+                                                     )
+
             replace_layer_norm(bert, "Transformer")
 
         else:
